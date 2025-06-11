@@ -3,12 +3,24 @@ import tempfile
 
 from flask import Flask, render_template, request, send_file, redirect, url_for, flash
 import openai
+import configparser
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "change-me")
+config = configparser.ConfigParser()
+config.read(os.path.join(os.path.dirname(__file__), "config.ini"))
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+app = Flask(__name__)
+
+# Configure Dropzone for audio uploads
+app.config['DROPZONE_ALLOWED_FILE_TYPE'] = 'audio'
+app.config['DROPZONE_MAX_FILE_SIZE'] = 50  # in MB
+app.config['DROPZONE_TIMEOUT'] = 120000    # in milliseconds
+
+from flask_dropzone import Dropzone
+dropzone = Dropzone(app)
+app.secret_key = os.getenv("SECRET_KEY", config["flask"]["secret_key"])
+
+openai.api_key = os.getenv("OPENAI_API_KEY", config["openai"]["api_key"])
 
 @app.route("/")
 def index():
@@ -28,8 +40,11 @@ def upload():
 
     try:
         with open(audio_path, "rb") as f:
-            transcript = openai.Audio.transcribe("whisper-1", f)
-        text = transcript["text"]
+            transcript = openai.audio.transcriptions.create(
+                file=f,
+                model="whisper-1"
+            )
+        text = transcript.text
     except Exception as exc:
         flash(f"Transcription failed: {exc}")
         os.remove(audio_path)

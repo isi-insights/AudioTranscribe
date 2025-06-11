@@ -3,48 +3,166 @@
 <head>
     <meta charset="utf-8">
     <title>Audio Transcription</title>
+    <!-- Dropzone.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css" />
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        #loading { display: none; text-align: center; }
-        .spinner {
-            border: 8px solid #f3f3f3;
-            border-top: 8px solid #3498db;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 2s linear infinite;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f9f9f9;
+        }
+        #upload-container {
+            max-width: 800px;
             margin: auto;
-            margin-top: 20px;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .dz-message {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 10px;
         }
+        #selectBtn {
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        #selectBtn:hover {
+            background-color: #2980b9;
+        }
+        #info {
+            display: none;
+            background-color: #eafaf1;
+            border: 1px solid #2ecc71;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+            margin: 20px auto;
+            max-width: 600px;
+            font-weight: bold;
+            color: #2c662d;
+        }
+
+        /* Overlay-Spinner */
+        #overlay{
+            position:fixed;
+            top:0;
+            left:0;
+            width:100%;
+            height:100%;
+            background:rgba(255,255,255,.8);
+            display:none;
+            align-items:center;
+            justify-content:center;
+            z-index:9999;
+        }
+        .spinner{
+            border:8px solid #f3f3f3;
+            border-top:8px solid #3498db;
+            border-radius:50%;
+            width:60px;
+            height:60px;
+            animation:spin 1s linear infinite;
+        }
+        @keyframes spin{
+            0%{transform:rotate(0deg);}
+            100%{transform:rotate(360deg);}
+        }
+        /* Overlay-Text unter Spinner */
+        #overlay-text {
+            margin-top: 10px;
+            font-size: 1.1em;
+            color: #333;
+        }
+        /* Container für Spinner & Text zentrieren */
+        #overlay > div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Dropzone-Previews ausblenden */
+        .dz-preview{display:none;}
     </style>
-    <script>
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
-        }
-    </script>
 </head>
 <body>
-<h1>Audio Transcription</h1>
-<form method="post" action="/upload" enctype="multipart/form-data" onsubmit="showLoading()">
-    <input type="file" name="audio_file" accept="audio/*" required>
-    <button type="submit">Upload and Transcribe</button>
-</form>
-<div id="loading">
-    <div class="spinner"></div>
-    <p>Transcribing...</p>
+    <h1 style="text-align:center;">Audio Transcription</h1>
+    <div id="upload-container">
+        <form action="{{ url_for('upload') }}"
+              class="dropzone"
+              id="upload-form"
+              method="post"
+              enctype="multipart/form-data">
+            <div class="dz-message">
+                Datei hierher ziehen oder klicken zum Auswählen
+            </div>
+            <button type="button" id="selectBtn">Datei auswählen</button>
+        </form>
+    </div>
+    <div id="info">
+        Transkribierung erfolgreich! Der Download startet automatisch.
 </div>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul style="color:red;">
-    {% for message in messages %}
-      <li>{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+    <div id="overlay">
+        <div>
+            <div class="spinner"></div>
+            <p id="overlay-text">Transkribierung läuft...</p>
+        </div>
+    </div>
+    <!-- Dropzone.js Script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js"></script>
+    <script>
+      /* Dropzone manuell initialisieren – Button & Drag-&-Drop funktionieren zuverlässig */
+      Dropzone.autoDiscover = false;
+      const dz = new Dropzone("#upload-form", {
+        url: "{{ url_for('upload') }}",
+        paramName: "audio_file",
+        maxFilesize: 50,               // MB
+        acceptedFiles: "audio/*",
+        clickable: ["#selectBtn", ".dz-message"],
+        timeout: 120000,
+        init: function () {
+          this.on("sending", () => {
+            document.getElementById("info").style.display = "none";
+            document.getElementById("overlay").style.display = "flex";
+          });
+          this.on("success", function (file, response) {
+            const blob = new Blob([response], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "transcript.txt";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            document.getElementById("overlay").style.display = "none";
+            document.getElementById("info").style.display = "block";
+            this.removeAllFiles();
+          });
+          this.on("error", function (file, message) {
+            document.getElementById("overlay").style.display = "none";
+            alert("Transkribierung fehlgeschlagen: " + message);
+          });
+        }
+      });
+    </script>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul style="color:red; max-width:600px; margin:auto;">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
 </body>
 </html>
