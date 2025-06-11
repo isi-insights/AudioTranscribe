@@ -1,13 +1,13 @@
 import os
 import tempfile
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from flask import Flask, render_template, request, send_file, redirect, url_for, flash
 import openai
-import configparser
 from werkzeug.utils import secure_filename
-
-config = configparser.ConfigParser()
-config.read(os.path.join(os.path.dirname(__file__), "config.ini"))
+from flask_dropzone import Dropzone
 
 app = Flask(__name__)
 
@@ -16,11 +16,16 @@ app.config['DROPZONE_ALLOWED_FILE_TYPE'] = 'audio'
 app.config['DROPZONE_MAX_FILE_SIZE'] = 50  # in MB
 app.config['DROPZONE_TIMEOUT'] = 120000    # in milliseconds
 
-from flask_dropzone import Dropzone
 dropzone = Dropzone(app)
-app.secret_key = os.getenv("SECRET_KEY", config["flask"]["secret_key"])
 
-openai.api_key = os.getenv("OPENAI_API_KEY", config["openai"]["api_key"])
+# Load secret key and OpenAI API key from environment
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY is not set in environment")
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
+if not openai.api_key:
+    raise RuntimeError("OPENAI_API_KEY is not set in environment")
 
 @app.route("/")
 def index():
