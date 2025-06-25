@@ -14,7 +14,7 @@ app = Flask(__name__)
 # Configure Dropzone for audio uploads
 app.config['DROPZONE_ALLOWED_FILE_TYPE'] = 'audio'
 app.config['DROPZONE_MAX_FILE_SIZE'] = 50  # in MB
-app.config['DROPZONE_TIMEOUT'] = 120000    # in milliseconds
+app.config['DROPZONE_TIMEOUT'] = 300000    # in milliseconds
 
 dropzone = Dropzone(app)
 
@@ -26,6 +26,38 @@ if not app.secret_key:
 openai.api_key = os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
     raise RuntimeError("OPENAI_API_KEY is not set in environment")
+
+def post_process_transcript(transcript_text):
+    """Post-process transcript using OpenAI API to add line breaks after sentences."""
+    system_prompt = """Input The user message variable <<TRANSCRIPT>> contains the unaltered Whisper transcript, including any timestamps, pause markers, or other metadata.
+
+Task
+Preserve the transcript's original order and wording exactly.
+Insert a single newline character (\\n) immediately after every sentence-ending punctuation mark (., ?, or !) so that each sentence appears on its own line.
+Do not insert any additional markup, headings, numbering, speaker labels, or JSON.
+
+Immutability Constraint
+Do not modify, delete, or replace any character of the original transcript.
+You may only add newline characters to separate sentences.
+Never correct spelling, punctuation, grammar, or remove metadata such as timestamps.
+
+Output
+Return one contiguous block of plain UTF-8 text with the inserted line breaks.
+Provide no leading or trailing blank lines and no explanatory text before or after the block."""
+    
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"<<TRANSCRIPT>>\n{transcript_text}"}
+            ],
+            temperature=0
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        # If post-processing fails, return original transcript
+        return transcript_text
 
 @app.route("/")
 def index():
@@ -56,8 +88,12 @@ def upload():
         return redirect(url_for("index"))
 
     os.remove(audio_path)
+    
+    # Post-process the transcript to add line breaks
+    processed_text = post_process_transcript(text)
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8") as tf:
-        tf.write(text)
+        tf.write(processed_text)
         tf.flush()
         transcript_path = tf.name
 

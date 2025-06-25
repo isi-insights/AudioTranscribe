@@ -90,12 +90,19 @@
             align-items: center;
             justify-content: center;
         }
-        /* Dropzone-Previews ausblenden */
-        .dz-preview{display:none;}
+        /* Dropzone-Previews und Progress-Balken ausblenden */
+        .dz-preview{display:none !important;}
+        .dz-progress{display:none !important;}
+        .dz-upload{display:none !important;}
+        .dz-complete{display:none !important;}
     </style>
 </head>
 <body>
     <h1 style="text-align:center;">Audio Transcription</h1>
+    <div style="max-width: 800px; margin: 20px auto; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; text-align: center;">
+        <strong>Hinweis:</strong> Diese Anwendung sendet Audiodateien zur Verarbeitung an OpenAI. 
+        Bitte laden Sie keine vertraulichen oder sensiblen Inhalte hoch.
+    </div>
     <div id="upload-container">
         <form action="{{ url_for('upload') }}"
               class="dropzone"
@@ -128,7 +135,7 @@
         maxFilesize: 50,               // MB
         acceptedFiles: "audio/*",
         clickable: ["#selectBtn", ".dz-message"],
-        timeout: 120000,
+        timeout: 300000,
         init: function () {
           this.on("sending", () => {
             document.getElementById("info").style.display = "none";
