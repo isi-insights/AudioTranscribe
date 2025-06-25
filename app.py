@@ -26,6 +26,7 @@ if not app.secret_key:
 openai.api_key = os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
     raise RuntimeError("OPENAI_API_KEY is not set in environment")
+print(f"API Key loaded: {openai.api_key[:10]}..." if openai.api_key else "API Key is None")
 
 def post_process_transcript(transcript_text):
     """Post-process transcript using OpenAI API to add line breaks after sentences."""
